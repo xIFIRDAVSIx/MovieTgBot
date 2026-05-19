@@ -60,24 +60,35 @@ export class BotUpdate {
 
     @Action(/^trailer_(\d+)$/)
     async onTrailer(@Ctx() ctx: any) {
-        await ctx.answerCbQuery(); // 🔥 обязательно, иначе кнопка “зависает”
+        await ctx.answerCbQuery();
 
-        const movieId = ctx.match[1];
+        const movieId = ctx.match?.[1];
+        if (!movieId) {
+            return ctx.reply('❌ Не удалось получить ID фильма');
+        }
 
         const url = `https://api.themoviedb.org/3/movie/${movieId}?api_key=${process.env.TMDB_KEY}&language=ru-RU`;
 
-        const res = await axios.get(url);
-        const movie = res.data;
+        let movie;
 
-        const trailer = await this.getTopTrailer(movie.title);
+        try {
+            const res = await axios.get(url);
+            movie = res.data;
+        } catch (err) {
+            console.error('TMDB error:', err);
+            return ctx.reply('❌ Ошибка получения данных о фильме');
+        }
+
+        const title = movie.title || movie.original_title;
+
+        const trailer = await this.getTopTrailer(title);
 
         if (!trailer) {
-            await ctx.reply('❌ Трейлер не найден');
-            return;
+            return ctx.reply('❌ Трейлер не найден');
         }
 
         await ctx.reply(
-            `🎬 <b>${movie.title}</b>\n\n🎞 <a href="${trailer}">Смотреть трейлер</a>`,
+            `🎬 <b>${title}</b>\n\n🎞 <a href="${trailer}">Смотреть трейлер</a>`,
             { parse_mode: 'HTML' }
         );
     }
